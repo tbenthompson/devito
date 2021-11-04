@@ -5,7 +5,7 @@ from devito.ir import (Forward, List, Prodder, FindNodes, Transformer,
 from devito.logger import warning
 from devito.passes.iet.engine import iet_pass
 from devito.passes.clusters.utils import level
-from devito.symbolics import MIN, MAX, evalmin
+from devito.symbolics import MIN, MAX, evalmin, evalmax
 from devito.tools import is_integer, split
 
 __all__ = ['avoid_denormals', 'hoist_prodders', 'relax_incr_dimensions', 'is_on_device']
@@ -91,6 +91,7 @@ def relax_incr_dimensions(iet, **kwargs):
         outer, inner = split(iterations, lambda i: not i.dim.parent.is_Incr)
 
         # Get root's `symbolic_max` out of each outer Dimension
+        roots_min = {i.dim.root: i.symbolic_min for i in outer}
         roots_max = {i.dim.root: i.symbolic_max for i in outer}
 
         # Process inner iterations and adjust their bounds
@@ -104,19 +105,31 @@ def relax_incr_dimensions(iet, **kwargs):
             # E.g. assume `i.symbolic_max = x0_blk0 + x0_blk0_size + 1` and
             # `i.dim.symbolic_max = x0_blk0 + x0_blk0_size - 1` then the generated
             # maximum will be `MIN(x0_blk0 + x0_blk0_size + 1, x_M + 2)`
+            root_min = roots_min[i.dim.root] + i.symbolic_min - i.dim.symbolic_min
             root_max = roots_max[i.dim.root] + i.symbolic_max - i.dim.symbolic_max
             # Interval care
-            rmapper = {}
-            rmapper[i.dim.root.symbolic_max] = root_max
-            rmapper[i.dim.symbolic_max] = i.symbolic_max
+            min_map = {}
+            max_map = {}
+
+            min_map[i.dim.root.symbolic_min] = root_min
+            min_map[i.dim.symbolic_min] = i.symbolic_min
+
+            defmin = [j.symbolic_min for j in sorted(i.dim._defines,
+                      key=lambda x: -level(x))]
+            defmin = list(dict.fromkeys(defmin))
+
+            max_map[i.dim.root.symbolic_max] = root_max
+            max_map[i.dim.symbolic_max] = i.symbolic_max
 
             defmax = [j.symbolic_max for j in sorted(i.dim._defines,
                       key=lambda x: -level(x))]
             defmax = list(dict.fromkeys(defmax))
 
-            iter_max = evalmin(*[j.subs(rmapper) for j in defmax if j in rmapper.keys()])
+            # Interval care
+            iter_min = evalmax(*[j.subs(min_map) for j in defmin if j in min_map])
+            iter_max = evalmin(*[j.subs(max_map) for j in defmax if j in max_map])
 
-            mapper[i] = i._rebuild(limits=(i.symbolic_min, iter_max, i.step))
+            mapper[i] = i._rebuild(limits=(iter_min, iter_max, i.step))
 
     if mapper:
         iet = Transformer(mapper, nested=True).visit(iet)
