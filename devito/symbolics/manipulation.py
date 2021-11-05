@@ -331,13 +331,13 @@ def evalmin(*args):
         except TypeError:
             return MIN(*args)
     else:
-        arglist = list(args)
+        args = list(args)
         try:
             bool(Min(*args))  # Can it be evaluated or simplified?
             simplified = Min(*args)
-            arglist = list(simplified.args)
+            args = list(simplified.args)
             exp = MIN(args[0], args[1])
-            for i in arglist[2:]:
+            for i in args[2:]:
                 exp = MIN(exp, i)
             return exp
         except TypeError:
@@ -348,12 +348,30 @@ def evalmin(*args):
             return exp
 
 
-def evalmax(a, b):
+def evalmax(*args):
     """
-    Simplify max(a, b) if possible.
+    Simplify evalmin(*args) if possible and return nested MIN/MAX expression.
     """
-    try:
-        bool(max(a, b))  # Can it be evaluated or simplified?
-        return max(a, b)
-    except TypeError:
-        return MAX(a, b)
+    if len(args) == 1:
+        return args[0]
+    elif len(args) == 2:
+        try:
+            bool(max(*args))  # Can it be evaluated or simplified?
+            return max(*args)
+        except TypeError:
+            return MAX(*args)
+    else:
+        args = list(args)
+        try:
+            bool(Max(*args))  # Can it be evaluated or simplified?
+            simplified = Max(*args)
+            args = list(simplified.args)
+            exp = MAX(args[0], args[1])
+            for i in args[2:]:
+                exp = MAX(exp, i)
+            return exp
+        except TypeError:
+            exp = MAX(args[0], args[1])
+            for i in args[2:]:
+                exp = MAX(exp, i)
+            return exp

@@ -3,9 +3,10 @@ import pytest
 import numpy as np
 
 from sympy import Symbol
-from devito import Grid, Function, solve, TimeFunction, Eq, Operator
+from devito import Grid, Function, solve, TimeFunction, Eq, Operator, ConditionalDimension, Le
 from devito.ir import Expression, FindNodes
-from devito.symbolics import retrieve_functions, retrieve_indexed, evalmin, MIN
+from devito.symbolics import (retrieve_functions, retrieve_indexed, evalmin, evalmax,
+                              MIN, MAX)
 
 
 def test_float_indices():
@@ -102,15 +103,43 @@ def test_nested_relations():
     Tests min/max with multiple args
     """
     a = Symbol('a')
-    assert evalmin(a) == a
-
-    a = Symbol('a')
     b = Symbol('b')
-    assert evalmin(a, b) == MIN(a, b)
-
     c = Symbol('c')
-    assert evalmin(a, b, c) == MIN(MIN(a, b), c)
-
     d = Symbol('d')
     d = a + 1
+
+    assert evalmin(a) == a
+    assert evalmin(a, b) == MIN(a, b)
+    assert evalmin(a, b, c) == MIN(MIN(a, b), c)
     assert evalmin(a, b, c, d) == MIN(MIN(a, b), c)
+
+    assert evalmax(a) == a
+    assert evalmax(a, b) == MAX(a, b)
+    assert evalmax(a, b, c) == MAX(MAX(a, b), c)
+    assert evalmax(a, b, c, d) == MAX(MAX(b, c), d)
+
+
+def test_multibounds_op():
+    """
+    Tests min/max with multiple args
+    """
+
+    grid = Grid(shape=(16, 16, 16))
+
+    a = Function(name='a', grid=grid)
+    b = Function(name='b', grid=grid)
+    c = Function(name='c', grid=grid)
+    d = Function(name='d', grid=grid)
+    a.data[:] = 5
+
+    b = pow(a, 2)
+    c = a + 10
+    d = 2*a
+
+    f = TimeFunction(name='f', grid=grid, space_order=2)
+    f.data[:] = 0.1
+
+    eqns = [Eq(f.forward, f.laplace + f * evalmin(f, b, c, d))]
+    op = Operator(eqns, opt=('advanced'))
+    op.apply(time_M=5)
+    assert 1==1  # TOFIX
