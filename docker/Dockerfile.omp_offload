@@ -1,0 +1,21 @@
+FROM python:3.8
+
+# install prerequisites
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends apt-utils
+#RUN apt-get update
+#RUN apt-get install build-essential
+#RUN snap install cmake --classic
+#RUN apt-get install -y libelf-dev libffi-dev
+#RUN apt-get install -y pkg-config
+#RUN apt-get install libnuma-dev
+
+# install cuda 10.1
+#RUN wget https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda-repo-ubuntu1804-10-1-local-10.1.105-418.39_1.0-1_amd64.deb
+#RUN dpkg -i cuda-repo-ubuntu1804-10-1-local-10.1.105-418.39_1.0-1_amd64.deb
+#RUN apt-key add /var/cuda-repo-10-1-local-10.1.105-418.39/7fa2af80.pub
+#RUN apt update
+#RUN apt install cuda
+#RUN rm cuda-repo-ubuntu1804-10-1-local-10.1.105-418.39_1.0-1_amd64.deb
+#ENV PATH=/usr/local/cuda-10.1/bin:$PATH
+#ENV LD_LIBRARY_PATH=/usr/local/cuda-10.1/lib64:$LD_LIBRARY_PATH
