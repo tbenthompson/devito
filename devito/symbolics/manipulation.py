@@ -2,8 +2,7 @@ from collections import OrderedDict, namedtuple
 from collections.abc import Iterable
 from functools import singledispatch
 
-import sympy
-from sympy import Number, Indexed, Symbol, LM, LC
+from sympy import Number, Indexed, Symbol, LM, LC, Min, Max, Pow, Add, Mul
 from sympy.core.add import _addsort
 from sympy.core.mul import _mulsort
 
@@ -72,15 +71,15 @@ def _uxreplace_handle(expr, args):
     return expr.func(*args)
 
 
-@_uxreplace_handle.register(sympy.Min)
-@_uxreplace_handle.register(sympy.Max)
-@_uxreplace_handle.register(sympy.Pow)
+@_uxreplace_handle.register(Min)
+@_uxreplace_handle.register(Max)
+@_uxreplace_handle.register(Pow)
 def _(expr, args):
     evaluate = all(i.is_Number for i in args)
     return expr.func(*args, evaluate=evaluate)
 
 
-@_uxreplace_handle.register(sympy.Add)
+@_uxreplace_handle.register(Add)
 def _(expr, args):
     if all(i.is_commutative for i in args):
         _addsort(args)
@@ -90,7 +89,7 @@ def _(expr, args):
         return expr._new_rawargs(*args)
 
 
-@_uxreplace_handle.register(sympy.Mul)
+@_uxreplace_handle.register(Mul)
 def _(expr, args):
     if all(i.is_commutative for i in args):
         _mulsort(args)
@@ -202,13 +201,13 @@ def pow_to_mul(expr):
             # looking for other Pows
             return expr.func(pow_to_mul(base), exp, evaluate=False)
         elif exp > 0:
-            return sympy.Mul(*[base]*int(exp), evaluate=False)
+            return Mul(*[base]*int(exp), evaluate=False)
         else:
             # SymPy represents 1/x as Pow(x,-1). Also, it represents
             # 2/x as Mul(2, Pow(x, -1)). So we shouldn't end up here,
             # but just in case SymPy changes its internal conventions...
-            posexpr = sympy.Mul(*[base]*(-int(exp)), evaluate=False)
-            return sympy.Pow(posexpr, -1, evaluate=False)
+            posexpr = Mul(*[base]*(-int(exp)), evaluate=False)
+            return Pow(posexpr, -1, evaluate=False)
     else:
         return expr.func(*[pow_to_mul(i) for i in expr.args], evaluate=False)
 
@@ -319,15 +318,34 @@ def reuse_if_untouched(expr, args, evaluate=False):
         return expr.func(*args, evaluate=evaluate)
 
 
-def evalmin(a, b):
+def evalmin(*args):
     """
-    Simplify min(a, b) if possible.
+    Simplify evalmin(*args) if possible and return nested MIN/MAX expression.
     """
-    try:
-        bool(min(a, b))  # Can it be evaluated or simplified?
-        return min(a, b)
-    except TypeError:
-        return MIN(a, b)
+    if len(args) == 1:
+        return args[0]
+    elif len(args) == 2:
+        try:
+            bool(min(*args))  # Can it be evaluated or simplified?
+            return min(*args)
+        except TypeError:
+            return MIN(*args)
+    else:
+        arglist = list(args)
+        try:
+            bool(Min(*args))  # Can it be evaluated or simplified?
+            simplified = Min(*args)
+            arglist = list(simplified.args)
+            exp = MIN(args[0], args[1])
+            for i in arglist[2:]:
+                exp = MIN(exp, i)
+            return exp
+        except TypeError:
+            arglist = list(args)
+            exp = MIN(args[0], args[1])
+            for i in arglist[2:]:
+                exp = MIN(exp, i)
+            return exp
 
 
 def evalmax(a, b):

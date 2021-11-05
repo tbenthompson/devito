@@ -2,9 +2,10 @@ import sympy
 import pytest
 import numpy as np
 
+from sympy import Symbol
 from devito import Grid, Function, solve, TimeFunction, Eq, Operator
 from devito.ir import Expression, FindNodes
-from devito.symbolics import retrieve_functions, retrieve_indexed
+from devito.symbolics import retrieve_functions, retrieve_indexed, evalmin, MIN
 
 
 def test_float_indices():
@@ -94,3 +95,22 @@ def test_solve_time():
     # TODO: replace by retreive_derivatives after Fabio's PR
     assert sympy.simplify(u.dx - sol.args[2].args[0].args[1]) == 0
     assert sympy.simplify(sol - (-dt**2*u.dx/m + 2.0*u - u.backward)) == 0
+
+
+def test_nested_relations():
+    """
+    Tests min/max with multiple args
+    """
+    a = Symbol('a')
+    assert evalmin(a) == a
+
+    a = Symbol('a')
+    b = Symbol('b')
+    assert evalmin(a, b) == MIN(a, b)
+
+    c = Symbol('c')
+    assert evalmin(a, b, c) == MIN(MIN(a, b), c)
+
+    d = Symbol('d')
+    d = a + 1
+    assert evalmin(a, b, c, d) == MIN(MIN(a, b), c)
