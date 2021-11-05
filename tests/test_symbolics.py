@@ -2,8 +2,8 @@ import sympy
 import pytest
 import numpy as np
 
-from sympy import Symbol
-from devito import Grid, Function, solve, TimeFunction, Eq, Operator, ConditionalDimension, Le
+from sympy import Symbol, Min
+from devito import Grid, Function, solve, TimeFunction, Eq, Operator, norm
 from devito.ir import Expression, FindNodes
 from devito.symbolics import (retrieve_functions, retrieve_indexed, evalmin, evalmax,
                               MIN, MAX)
@@ -137,9 +137,17 @@ def test_multibounds_op():
     d = 2*a
 
     f = TimeFunction(name='f', grid=grid, space_order=2)
-    f.data[:] = 0.1
 
+    f.data[:] = 0.1
+    eqns = [Eq(f.forward, f.laplace + f * Min(f, b, c, d))]
+    op = Operator(eqns, opt=('advanced'))
+    op.apply(time_M=5)
+    fnorm = norm(f)
+
+    f.data[:] = 0.1
     eqns = [Eq(f.forward, f.laplace + f * evalmin(f, b, c, d))]
     op = Operator(eqns, opt=('advanced'))
     op.apply(time_M=5)
-    assert 1==1  # TOFIX
+    fnorm2 = norm(f)
+
+    assert fnorm == fnorm2
