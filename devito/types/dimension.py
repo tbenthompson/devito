@@ -13,7 +13,7 @@ from devito.types.basic import Symbol, DataSymbol, Scalar
 
 __all__ = ['Dimension', 'SpaceDimension', 'TimeDimension', 'DefaultDimension',
            'CustomDimension', 'SteppingDimension', 'SubDimension', 'ConditionalDimension',
-           'dimensions', 'ModuloDimension', 'IncrDimension']
+           'dimensions', 'ModuloDimension', 'IncrDimension', 'DerivedDimension']
 
 
 Thickness = namedtuple('Thickness', 'left right')
