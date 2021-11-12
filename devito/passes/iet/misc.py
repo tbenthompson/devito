@@ -113,20 +113,26 @@ def relax_incr_dimensions(iet, **kwargs):
             min_map[i.dim.root.symbolic_min] = root_min
             min_map[i.dim.symbolic_min] = i.symbolic_min
 
-            defmin = [j.symbolic_min for j in sorted(i.dim._defines,
-                      key=lambda x: (not x.is_Incr or -x._depth))]
+            defines = sorted(i.dim._defines, key=lambda x: (not x.is_Incr or -x._depth))
+
+            defmin = [j.symbolic_min for j in defines]
+            defmin = [j for j in defmin if j not in (k.symbolic_min for
+                      k in defmin if k.is_Symbol and not k.is_Scalar)]
+            defmin = [j.subs(min_map) for j in defmin if j in min_map]
             defmin = list(dict.fromkeys(defmin))
 
             max_map[i.dim.root.symbolic_max] = root_max
             max_map[i.dim.symbolic_max] = i.symbolic_max
 
-            defmax = [j.symbolic_max for j in sorted(i.dim._defines,
-                      key=lambda x: (not x.is_Incr or -x._depth))]
+            defmax = [j.symbolic_max for j in defines]
+            defmax = [j for j in defmax if j not in (k.symbolic_max for
+                      k in defmax if k.is_Symbol and not k.is_Scalar)]
+            defmax = [j.subs(max_map) for j in defmax if j in max_map]
             defmax = list(dict.fromkeys(defmax))
 
             # Interval care
-            iter_min = evalmax(*[j.subs(min_map) for j in defmin if j in min_map])
-            iter_max = evalmin(*[j.subs(max_map) for j in defmax if j in max_map])
+            iter_min = evalmax(*defmin)
+            iter_max = evalmin(*defmax)
 
             mapper[i] = i._rebuild(limits=(iter_min, iter_max, i.step))
 

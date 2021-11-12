@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 
 from conftest import assert_blocking
-from devito.symbolics import MIN, MAX
+from devito.symbolics import MIN
 from devito import Grid, Dimension, Eq, Function, TimeFunction, Operator, norm # noqa
 from devito.ir import Expression, Iteration, FindNodes
 
@@ -54,12 +54,10 @@ class TestCodeGenSkewing(object):
         assert iters[1].symbolic_min == (iters[1].dim.parent.symbolic_min + time)
         assert iters[1].symbolic_max == (iters[1].dim.parent.symbolic_max + time)
 
-        assert iters[2].symbolic_min == MAX(iters[0].dim,
-                                            iters[2].dim.root.symbolic_min + time)
+        assert iters[2].symbolic_min == iters[2].dim.symbolic_min
         assert iters[2].symbolic_max == MIN(iters[0].dim + iters[0].dim.symbolic_incr
                                             - 1, iters[0].dim.symbolic_max + time)
-        assert iters[3].symbolic_min == MAX(iters[1].dim,
-                                            iters[3].dim.root.symbolic_min + time)
+        assert iters[3].symbolic_min == iters[3].dim.symbolic_min
         assert iters[3].symbolic_max == MIN(iters[1].dim + iters[1].dim.symbolic_incr
                                             - 1, iters[1].dim.symbolic_max + time)
 
