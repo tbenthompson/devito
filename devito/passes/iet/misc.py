@@ -4,7 +4,6 @@ from devito.ir import (Forward, List, Prodder, FindNodes, Transformer,
                        filter_iterations, retrieve_iteration_tree)
 from devito.logger import warning
 from devito.passes.iet.engine import iet_pass
-from devito.passes.clusters.utils import level
 from devito.symbolics import MIN, MAX, evalmin, evalmax
 from devito.tools import is_integer, split
 
@@ -115,14 +114,14 @@ def relax_incr_dimensions(iet, **kwargs):
             min_map[i.dim.symbolic_min] = i.symbolic_min
 
             defmin = [j.symbolic_min for j in sorted(i.dim._defines,
-                      key=lambda x: -level(x))]
+                      key=lambda x: (not x.is_Incr or -x._depth))]
             defmin = list(dict.fromkeys(defmin))
 
             max_map[i.dim.root.symbolic_max] = root_max
             max_map[i.dim.symbolic_max] = i.symbolic_max
 
             defmax = [j.symbolic_max for j in sorted(i.dim._defines,
-                      key=lambda x: -level(x))]
+                      key=lambda x: (not x.is_Incr or -x._depth))]
             defmax = list(dict.fromkeys(defmax))
 
             # Interval care
