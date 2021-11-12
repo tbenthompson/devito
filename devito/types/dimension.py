@@ -1183,6 +1183,31 @@ class IncrDimension(DerivedDimension):
 class RIncrDimension(IncrDimension):
 
     """
+    Subclass of IncrDimension, used to define relaxed bounds at construction time
+
+    Parameters
+    ----------
+    name : str
+        Name of the dimension.
+    parent : Dimension
+        The Dimension from which the IncrDimension is derived.
+    _min : expr-like
+        The minimum point of the Dimension.
+    _max : expr-like
+        The maximum point of the Dimension.
+    rmin : expr-like
+        The relaxed minimum point of the Dimension.
+    rmax : expr-like
+        The relaxed maximum point of the Dimension.
+    step : expr-like, optional
+        The distance between two consecutive points. Defaults to the
+        symbolic size.
+    size : expr-like, optional
+        The symbolic size of the Dimension. Defaults to `_max-_min+1`.
+
+    Notes
+    -----
+    This type should not be instantiated directly in user code.
     """
 
     def __init_finalize__(self, name, parent, _min, _max, rmin=None, rmax=None,
