@@ -31,6 +31,7 @@ class Le(sympy.Le):
     >>> Le(g, 1)
     g(x, y) <= 1
     """
+    is_Le = True
 
     def __new__(cls, lhs, rhs=0, subdomain=None, **kwargs):
         kwargs.update({'evaluate': False})
@@ -74,6 +75,7 @@ class Lt(sympy.Lt):
     >>> Lt(g, 1)
     g(x, y) < 1
     """
+    is_Lt = True
 
     def __new__(cls, lhs, rhs=0, subdomain=None, **kwargs):
         kwargs.update({'evaluate': False})

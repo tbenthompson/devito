@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 from sympy import Symbol, Min
-from devito import Grid, Function, solve, TimeFunction, Eq, Operator, norm
+from devito import Grid, Function, solve, TimeFunction, Eq, Operator, norm, Le
 from devito.ir import Expression, FindNodes
 from devito.symbolics import (retrieve_functions, retrieve_indexed, evalmin, evalmax,
                               MIN, MAX)
@@ -108,15 +108,15 @@ def test_nested_relations():
     d = Symbol('d')
     d = a + 1
 
-    assert evalmin(a) == a
-    assert evalmin(a, b) == MIN(a, b)
-    assert evalmin(a, b, c) == MIN(MIN(a, b), c)
-    assert evalmin(a, b, c, d) == MIN(MIN(a, b), c)
+    assert evalmin([a]) == a
+    assert evalmin([a, b]) == MIN(a, b)
+    assert evalmin([a, b, c]) == MIN(MIN(a, b), c)
+    assert evalmin([a, b, c, d]) == MIN(MIN(a, b), c)
 
-    assert evalmax(a) == a
-    assert evalmax(a, b) == MAX(a, b)
-    assert evalmax(a, b, c) == MAX(MAX(a, b), c)
-    assert evalmax(a, b, c, d) == MAX(MAX(b, c), d)
+    assert evalmax([a]) == a
+    assert evalmax([a, b]) == MAX(a, b)
+    assert evalmax([a, b, c]) == MAX(MAX(a, b), c)
+    assert evalmax([a, b, c, d]) == MAX(MAX(b, c), d)
 
 
 def test_multibounds_op():
@@ -145,9 +145,32 @@ def test_multibounds_op():
     fnorm = norm(f)
 
     f.data[:] = 0.1
-    eqns = [Eq(f.forward, f.laplace + f * evalmin(f, b, c, d))]
+    eqns = [Eq(f.forward, f.laplace + f * evalmin([f, b, c, d]))]
     op = Operator(eqns, opt=('advanced'))
     op.apply(time_M=5)
     fnorm2 = norm(f)
 
     assert fnorm == fnorm2
+
+
+def test_relations_w_assumptions():
+    """
+    Tests min/max with multiple args
+    """
+    a = Symbol('a')
+    b = Symbol('b')
+    c = Symbol('c')
+    d = Symbol('d')
+
+    assert (evalmin((a, b, c, d), [Le(d, a)])
+            == MIN(MIN(b, c), d))
+
+    assert evalmin([a]) == a
+    assert evalmin([a, b]) == MIN(a, b)
+    assert evalmin([a, b, c]) == MIN(MIN(a, b), c)
+
+    assert evalmax([a]) == a
+    assert evalmax([a, b]) == MAX(a, b)
+    assert evalmax([a, b, c]) == MAX(MAX(a, b), c)
+    d = a + 1
+    assert evalmax([a, b, c, d]) == MAX(MAX(b, c), d)

@@ -318,60 +318,79 @@ def reuse_if_untouched(expr, args, evaluate=False):
         return expr.func(*args, evaluate=evaluate)
 
 
-def evalmin(*args):
+def evalmin(relargs=None, assms=None):
     """
     Simplify evalmin(*args) if possible and return nested MIN/MAX expression.
     """
-    if len(args) == 1:
-        return args[0]
-    elif len(args) == 2:
+    if len(relargs) == 1:
+        return relargs[0]
+
+    mapper = {}
+    if assms:
+        for asm in assms:
+            if all(asm.args) is any(relargs) and (asm.is_Le or asm.is_Lt):
+                mapper.update({asm.args[1]: asm.args[0]})
+
+    relargs = [i.subs(mapper) for i in relargs]
+
+    if len(relargs) == 2:
         try:
-            bool(min(*args))  # Can it be evaluated or simplified?
-            return min(*args)
+            bool(min(*relargs))  # Can it be evaluated or simplified?
+            return min(*relargs)
         except TypeError:
-            return MIN(*args)
+            return MIN(*relargs)
     else:
-        args = list(args)
+        relargs = list(relargs)
         try:
-            bool(Min(*args))  # Can it be evaluated or simplified?
-            simplified = Min(*args)
-            args = list(simplified.args)
-            exp = MIN(args[0], args[1])
-            for i in args[2:]:
+            bool(Min(*relargs))  # Can it be evaluated or simplified?
+            simplified = Min(*relargs)
+            relargs = list(simplified.args)
+            exp = MIN(relargs[0], relargs[1])
+            for i in relargs[2:]:
                 exp = MIN(exp, i)
             return exp
         except TypeError:
-            arglist = list(args)
-            exp = MIN(args[0], args[1])
+            arglist = list(relargs)
+            exp = MIN(relargs[0], relargs[1])
             for i in arglist[2:]:
                 exp = MIN(exp, i)
             return exp
 
 
-def evalmax(*args):
+def evalmax(relargs=None, assms=None):
     """
-    Simplify evalmin(*args) if possible and return nested MIN/MAX expression.
+    Simplify evalmax(*args) if possible and return nested MIN/MAX expression.
     """
-    if len(args) == 1:
-        return args[0]
-    elif len(args) == 2:
+    if len(relargs) == 1:
+        return relargs[0]
+
+    mapper = {}
+    if assms:
+        for asm in assms:
+            if all(asm.args) is any(relargs) and (asm.is_Ge or asm.is_Gt):
+                mapper.update({asm.args[0]: asm.args[1]})
+
+    relargs = [i.subs(mapper) for i in relargs]
+
+    if len(relargs) == 2:
         try:
-            bool(max(*args))  # Can it be evaluated or simplified?
-            return max(*args)
+            bool(max(*relargs))  # Can it be evaluated or simplified?
+            return max(*relargs)
         except TypeError:
-            return MAX(*args)
+            return MAX(*relargs)
     else:
-        args = list(args)
+        relargs = list(relargs)
         try:
-            bool(Max(*args))  # Can it be evaluated or simplified?
-            simplified = Max(*args)
-            args = list(simplified.args)
-            exp = MAX(args[0], args[1])
-            for i in args[2:]:
+            bool(Max(*relargs))  # Can it be evaluated or simplified?
+            simplified = Max(*relargs)
+            relargs = list(simplified.args)
+            exp = MAX(relargs[0], relargs[1])
+            for i in relargs[2:]:
                 exp = MAX(exp, i)
             return exp
         except TypeError:
-            exp = MAX(args[0], args[1])
-            for i in args[2:]:
+            arglist = list(relargs)
+            exp = MAX(relargs[0], relargs[1])
+            for i in arglist[2:]:
                 exp = MAX(exp, i)
             return exp
