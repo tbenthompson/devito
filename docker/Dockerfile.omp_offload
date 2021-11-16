@@ -46,7 +46,7 @@ RUN rm -rf llvmorg-13.0.0.tar.gz llvm-project-llvmorg-13.0.0
 ENV PATH /llvm13/bin:${PATH}
 ENV LD_LIBRARY_PATH /llvm13/lib:${LD_LIBRARY_PATH}
 
-# INSTALL PYTHON
+## INSTALL PYTHON
 
 RUN apt-get install -y --no-install-recommends python3-dev
 RUN apt-get install -y --no-install-recommends python3-venv
@@ -90,9 +90,6 @@ RUN useradd -r -g app -d /app -s /sbin/nologin -c "Docker image user" app
 RUN chown -R app:app $APP_HOME
 RUN chown -R app:app /docker-entrypoint.sh
 RUN chown -R app:app /venv
-
-## REMOVE
-RUN apt-get install -y --no-install-recommends nano
 
 # Change to the app user.
 USER app
