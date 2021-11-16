@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 from sympy import Symbol, Min
-from devito import Grid, Function, solve, TimeFunction, Eq, Operator, norm, Le
+from devito import Grid, Function, solve, TimeFunction, Eq, Operator, norm, Le, Ge
 from devito.ir import Expression, FindNodes
 from devito.symbolics import (retrieve_functions, retrieve_indexed, evalmin, evalmax,
                               MIN, MAX)
@@ -172,5 +172,27 @@ def test_relations_w_assumptions():
     assert evalmax([a]) == a
     assert evalmax([a, b]) == MAX(a, b)
     assert evalmax([a, b, c]) == MAX(MAX(a, b), c)
-    d = a + 1
-    assert evalmax([a, b, c, d]) == MAX(MAX(b, c), d)
+    assert evalmax([a, b, c, d], [Ge(d, a)]) == MAX(MAX(b, c), d)
+
+
+def test_relations_w_complex_assumptions():
+    """
+    Tests min/max with multiple args
+    """
+    a = Symbol('a')
+    b = Symbol('b')
+    c = Symbol('c')
+    d = Symbol('d')
+
+    assert evalmin([a]) == a
+    assert evalmin([a, b], [Le(d, a), Ge(c, b)]) == MIN(a, b)
+    assert evalmin([a, b, c]) == MIN(MIN(a, b), c)
+    assert (evalmin((a, b, c, d), [Le(d, a), Ge(c, b)])
+            == MIN(b, d))
+    assert evalmin([a, b, c, d], [Ge(a, b), Ge(d, a), Ge(b, c)]) == c
+
+    assert evalmax([a], [Le(a, a)]) == a
+    assert evalmax([a, b], [Le(a, b)]) == b
+    assert evalmax([a, b, c], [Le(c, b), Le(c, a)]) == MAX(a, b)
+    assert evalmax([a, b, c, d], [Ge(d, a), Ge(a, b), Ge(b, c)]) == d
+    assert evalmax([a, b, c, d], [Ge(a, b), Ge(d, a), Ge(b, c)]) == d

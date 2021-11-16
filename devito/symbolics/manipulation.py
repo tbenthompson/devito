@@ -10,6 +10,7 @@ from devito.symbolics import MIN, MAX
 from devito.symbolics.search import retrieve_indexed, retrieve_functions
 from devito.tools import as_list, as_tuple, flatten, split
 from devito.types.equation import Eq
+from devito.types.relational import Le, Lt, Gt, Ge
 
 __all__ = ['xreplace_indices', 'pow_to_mul', 'as_symbol', 'indexify',
            'split_affine', 'subs_op_args', 'uxreplace', 'aligned_indices',
@@ -328,15 +329,19 @@ def evalmin(relargs=None, assms=None):
     mapper = {}
     if assms:
         for asm in assms:
-            if all(asm.args) is any(relargs) and (asm.is_Le or asm.is_Lt):
-                mapper.update({asm.args[1]: asm.args[0]})
+            if set(asm.args).issubset(relargs):
+                if (asm.__class__ in (Le, Lt)):
+                    mapper.update({asm.args[1]: asm.args[0]})
+                elif (asm.__class__ in (Ge, Gt)):
+                    mapper.update({asm.args[0]: asm.args[1]})
 
+    mapper = transitive_closure(mapper)
     relargs = [i.subs(mapper) for i in relargs]
 
     if len(relargs) == 2:
         try:
-            bool(min(*relargs))  # Can it be evaluated or simplified?
-            return min(*relargs)
+            bool(Min(*relargs))  # Can it be evaluated or simplified?
+            return MIN(*relargs)
         except TypeError:
             return MIN(*relargs)
     else:
@@ -344,11 +349,14 @@ def evalmin(relargs=None, assms=None):
         try:
             bool(Min(*relargs))  # Can it be evaluated or simplified?
             simplified = Min(*relargs)
-            relargs = list(simplified.args)
-            exp = MIN(relargs[0], relargs[1])
-            for i in relargs[2:]:
-                exp = MIN(exp, i)
-            return exp
+            if not simplified.args:
+                return simplified
+            else:
+                relargs = list(simplified.args)
+                exp = MIN(relargs[0], relargs[1])
+                for i in relargs[2:]:
+                    exp = MIN(exp, i)
+                return exp
         except TypeError:
             arglist = list(relargs)
             exp = MIN(relargs[0], relargs[1])
@@ -367,15 +375,23 @@ def evalmax(relargs=None, assms=None):
     mapper = {}
     if assms:
         for asm in assms:
-            if all(asm.args) is any(relargs) and (asm.is_Ge or asm.is_Gt):
-                mapper.update({asm.args[0]: asm.args[1]})
+            if set(asm.args).issubset(relargs):
+                if (asm.__class__ in (Ge, Gt)):
+                    mapper.update({asm.args[1]: asm.args[0]})
+                elif (asm.__class__ in (Le, Lt)):
+                    mapper.update({asm.args[0]: asm.args[1]})
 
+    mapper = transitive_closure(mapper)
     relargs = [i.subs(mapper) for i in relargs]
 
     if len(relargs) == 2:
         try:
-            bool(max(*relargs))  # Can it be evaluated or simplified?
-            return max(*relargs)
+            bool(Max(*relargs))  # Can it be evaluated or simplified?
+            simplified = Max(*relargs)
+            if not simplified.args:
+                return simplified
+            else:
+                return MAX(*list(simplified.args))
         except TypeError:
             return MAX(*relargs)
     else:
@@ -383,14 +399,35 @@ def evalmax(relargs=None, assms=None):
         try:
             bool(Max(*relargs))  # Can it be evaluated or simplified?
             simplified = Max(*relargs)
-            relargs = list(simplified.args)
-            exp = MAX(relargs[0], relargs[1])
-            for i in relargs[2:]:
-                exp = MAX(exp, i)
-            return exp
+            if not simplified.args:
+                return simplified
+            else:
+                relargs = list(simplified.args)
+                exp = MAX(relargs[0], relargs[1])
+                for i in relargs[2:]:
+                    exp = MAX(exp, i)
+                return exp
         except TypeError:
             arglist = list(relargs)
             exp = MAX(relargs[0], relargs[1])
             for i in arglist[2:]:
                 exp = MAX(exp, i)
             return exp
+
+
+def reachable_items(R, k):
+    try:
+        ans = R[k]
+        if ans != []:
+            ans = reachable_items(R, ans)
+        return ans
+    except:
+        return k
+
+
+def transitive_closure(R):
+    "Partially inherited from: https://www.buzzphp.com/posts/transitive-closure"
+    ans = dict()
+    for k in R.keys():
+        ans[k] = reachable_items(R, k)
+    return ans
