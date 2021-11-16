@@ -1,5 +1,6 @@
-# git clone https://github.com/devitocodes/devito.git
+# git clone https://github.com/italoaug/devito.git
 # cd devito
+# git checkout omp-offload-docker
 # Uncomment line "self.cflags += ['-Xopenmp-target', '-march=sm_37']" in devito/arch/compiler.py and change sm_37 for sm_XX where XX is the compute capability of your GPU
 # sudo docker build -t devito/ompoffload:1.0 -f docker/Dockerfile.omp_offload .
 # sudo docker run --gpus all --rm -it devito/ompoffload:1.0
