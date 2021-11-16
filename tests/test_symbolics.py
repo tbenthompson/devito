@@ -196,4 +196,4 @@ def test_relations_w_complex_assumptions():
     assert evalmax([a, b, c], [Le(c, b), Le(c, a)]) == MAX(a, b)
     assert evalmax([a, b, c, d], [Ge(d, a), Ge(a, b), Ge(b, c)]) == d
     assert evalmax([a, b, c, d], [Ge(a, b), Ge(d, a), Ge(b, c)]) == d
-    assert evalmax([a, b, c, d], [Ge(a, b), Le(b, c)]) == d
+    assert evalmax([a, b, c, d], [Ge(a, b), Le(b, c)]) == MAX(MAX(a, c), d)
