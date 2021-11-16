@@ -1,7 +1,7 @@
 #### HOST CONFIGURATION https://github.com/NVIDIA/nvidia-docker
 
 ## NVIDIA DRIVER : https://linuxconfig.org/how-to-install-the-nvidia-drivers-on-ubuntu-20-04-focal-fossa-linux
-# sudo apt-get install nvidia-driver-470
+# sudo apt-get install nvidia-driver-470 
 # sudo reboot
 
 ## DOCKER
@@ -16,24 +16,24 @@
 # sudo systemctl restart docker
 # sudo docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi # testing
 
-## ---- oracle cloud : devito-docker-nvidia
-
 ##### DEVITO'S OPENMP DOCKER
-# sudo docker build -t devito/ompoffload:1.0 -f Dockerfile.omp_offload .
+
+# git clone https://github.com/devitocodes/devito.git
+# cd devito
+# Uncomment line "self.cflags += ['-Xopenmp-target', '-march=sm_37']" in devito/arch/compiler.py and change sm_37 for sm_XX where XX is the compute capability of your GPU
+# sudo docker build -t devito/ompoffload:1.0 -f docker/Dockerfile.omp_offload .
 # sudo docker run --gpus all --rm -it devito/ompoffload:1.0
 
 FROM nvidia/cuda:10.1-devel-ubuntu18.04
 
 ENV DEBIAN_FRONTEND noninteractive
 CMD ["/bin/bash"]
-# RUN export DEVITO_MAHCINE_PHYSICAL_CORES=$(( $(lscpu | awk '/^Socket\(s\)/{ print $2 }') * $(lscpu | awk '/^Core\(s\) per socket/{ print $4 }') ))
-# RUN echo "DEVITO_MAHCINE_PHYSICAL_CORES = ${DEVITO_MAHCINE_PHYSICAL_CORES}"
 
-## install prerequisites
+## INSTALL PREREQUISITES
+
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends apt-utils
 RUN apt-get install -y --no-install-recommends build-essential
-# RUN apt-get install -y --no-install-recommends cmake
 RUN apt-get install -y --no-install-recommends libelf-dev
 RUN apt-get install -y --no-install-recommends libffi-dev
 RUN apt-get install -y --no-install-recommends pkg-config
@@ -49,17 +49,77 @@ RUN apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) m
 RUN apt-get update
 RUN apt-get -y --no-install-recommends install cmake
 
-## install clang 13
+## INSTALL CLANG 13
+
 RUN wget -q https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz
 RUN tar -xf llvmorg-13.0.0.tar.gz
 WORKDIR /llvm-project-llvmorg-13.0.0
 RUN mkdir build
 WORKDIR /llvm-project-llvmorg-13.0.0/build
-RUN cmake ../llvm/ -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="openmp" -DCMAKE_INSTALL_PREFIX=/llvm13
-# !!! '12' IN NEXT LINE IS HARDCODED
-RUN make -j 12
+RUN cmake ../llvm/ -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=all -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="openmp" -DCMAKE_INSTALL_PREFIX=/llvm13
+RUN make -j $(( $(lscpu | awk '/^Socket\(s\)/{ print $2 }') * $(lscpu | awk '/^Core\(s\) per socket/{ print $4 }') ))
 RUN make install
 WORKDIR /
 RUN rm -rf llvmorg-13.0.0.tar.gz llvm-project-llvmorg-13.0.0
 ENV PATH /llvm13/bin:${PATH}
 ENV LD_LIBRARY_PATH /llvm13/lib:${LD_LIBRARY_PATH}
+
+# INSTALL PYTHON
+
+RUN apt-get install -y --no-install-recommends python3-dev
+RUN apt-get install -y --no-install-recommends python3-venv
+
+## INSTALL DEVITO
+
+ADD ./requirements.txt /app/requirements.txt
+ADD ./requirements-optional.txt /app/requirements-optional.txt
+# ADD ./requirements-mpi.txt /app/requirements-mpi.txt
+
+RUN python3 -m venv /venv
+RUN /venv/bin/pip install --no-cache-dir --upgrade pip
+RUN /venv/bin/pip install --no-cache-dir jupyter
+RUN /venv/bin/pip install --no-cache-dir wheel
+RUN /venv/bin/pip install --no-cache-dir -r /app/requirements.txt
+RUN /venv/bin/pip install --no-cache-dir -r /app/requirements-optional.txt
+# RUN /venv/bin/pip install --no-cache-dir -r /app/requirements-mpi.txt
+RUN rm -rf ~/.cache/pip
+
+ADD ./devito /app/devito
+ADD ./tests /app/tests
+ADD ./examples /app/examples
+ADD ./benchmarks /app/benchmarks
+COPY setup.cfg /app/
+ADD docker/entrypoint.sh /docker-entrypoint.sh
+
+RUN chmod +x /docker-entrypoint.sh
+
+## CREATE APP USER
+
+# Set the home directory to our app user's home.
+ENV HOME=/app
+ENV APP_HOME=/app
+
+# Create the home directory for the new app user.
+# Create an app user so our program doesn't run as root.
+# Chown all the files to the app user.
+RUN mkdir -p /app
+RUN groupadd -r app
+RUN useradd -r -g app -d /app -s /sbin/nologin -c "Docker image user" app
+RUN chown -R app:app $APP_HOME
+RUN chown -R app:app /docker-entrypoint.sh
+RUN chown -R app:app /venv
+
+## REMOVE
+RUN apt-get install -y --no-install-recommends nano
+
+# Change to the app user.
+USER app
+WORKDIR /app
+
+## SET ENVIRONMET VARIABLES FOR OPENMP OFFLOAD
+
+ENV DEVITO_ARCH="clang"
+ENV DEVITO_LANGUAGE="openmp"
+ENV DEVITO_PLATFORM="nvidiaX"
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
