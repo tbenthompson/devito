@@ -426,7 +426,9 @@ def reachable_items(R, k):
 
 
 def transitive_closure(R):
-    "Partially inherited from: https://www.buzzphp.com/posts/transitive-closure"
+    '''
+    Partially inherited from: https://www.buzzphp.com/posts/transitive-closure
+    '''
     ans = dict()
     for k in R.keys():
         ans[k] = reachable_items(R, k)
