@@ -85,11 +85,11 @@ ENV PATH $HPCSDK_HOME/compilers/bin:$HPCSDK_HOME/cuda/bin:$HPCSDK_HOME/comm_libs
 ENV LD_LIBRARY_PATH $HPCSDK_HOME/cuda/lib:$HPCSDK_HOME/cuda/lib64:$HPCSDK_HOME/compilers/lib:$HPCSDK_HOME/math_libs/lib64:$HPCSDK_HOME/comm_libs/mpi/lib:$HPCSDK_CUPTI/lib64:bitcomp_DIR:${LD_LIBRARY_PATH}
 
 ## INSTALL CLANG 13
-RUN wget -q https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz
-RUN tar -xf llvmorg-13.0.0.tar.gz
-WORKDIR /llvm-project-llvmorg-13.0.0
+RUN git clone https://github.com/llvm/llvm-project.git
+# RUN tar -xf llvmorg-13.0.0.tar.gz
+WORKDIR /llvm-project
 RUN mkdir build
-WORKDIR /llvm-project-llvmorg-13.0.0/build
+WORKDIR /llvm-project/build
 RUN cmake ../llvm/ -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="openmp" -DCMAKE_INSTALL_PREFIX=/llvm13
 RUN make -j $(( $(lscpu | awk '/^Socket\(s\)/{ print $2 }') * $(lscpu | awk '/^Core\(s\) per socket/{ print $4 }') ))
 RUN make install
