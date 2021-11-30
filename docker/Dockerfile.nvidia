@@ -1,20 +1,10 @@
-##############################################################
+###############################################################
 # This Dockerfile contains the additional NVIDIA compilers, 
-# libraries, and plugins to enable OpenACC and NVIDIA GPU 
-# acceleration of Devito codes.
+# libraries, and plugins to enable LLVM/Clang OpenMP offloading
+# and NVIDIA GPU acceleration of Devito codes.
 #
 # BUILD: 
-#   docker build --network=host --file docker/Dockerfile.nvidia --tag devito:nvidia .
-#
-# LEGACY:
-#   (1) Option MPI 3.0:
-#   docker build --network=host --build-arg MPI_VER=3 --file docker/Dockerfile.nvidia --tag devito:nvidia .
-#
-#   (2) Option MPI 4.0:
-#   Enabling and using MPI 4.0.5 works on R450 drivers, but is showing compatibility 
-#   issues during testing on older R418 drivers.
-# 
-#   docker build --network=host --build-arg MPI_VER=4 --file docker/Dockerfile.nvidia --tag devito:nvidia .
+#   docker build --network=host --file docker/Dockerfile.clang_omp_offload --tag devito:clang_omp_offload .
 #
 # RUN: 
 #   docker run --gpus all --rm -it -p 8888:8888 -p 8787:8787 -p 8786:8786 devito:nvidia
@@ -24,14 +14,14 @@
 #   docker run --gpus all --rm -it -v `pwd`:`pwd` -w `pwd` -u $(id -u):$(id -g) devito.nvidia python examples/seismic/acoustic/acoustic_example.py
 #
 ##############################################################
-FROM python:3.8
+FROM python:3.9
 
 ENV DEBIAN_FRONTEND noninteractive 
 
-# nodesource: nvdashboard requires nodejs>=10  
+# nodesource: nvdashboard requires nodejs>=10 
 RUN apt-get update -y && \
     apt-get install -y -q \
-        apt-utils curl libelf-dev libffi-dev\   
+        apt-utils curl libelf-dev libffi-dev\    
         vim g++-multilib gcc-multilib wget cmake && \
     curl -sL https://deb.nodesource.com/setup_12.x | bash - && \
     apt-get install -y -q \
@@ -57,8 +47,6 @@ RUN apt-get update -y && \
 
 ARG HPCSDK_HOME=/opt/nvidia/hpc_sdk/Linux_x86_64/2020
 ARG HPCSDK_CUPTI=/opt/nvidia/hpc_sdk/Linux_x86_64/2020/cuda/11.1/extras/CUPTI
-#MPI_VER options 3,4,HPCX
-ARG MPI_VER=HPCX 
 
 # nvidia-container-runtime
 ENV NVIDIA_VISIBLE_DEVICES all
@@ -79,19 +67,20 @@ ENV bitcomp_DIR $NVCOMP_EXTS_ROOT/lib/
 # Compiler, CUDA, and Library paths
 ENV CUDA_HOME $HPCSDK_HOME/cuda
 ENV CUDA_ROOT $HPCSDK_HOME/cuda/bin
-ENV PATH $HPCSDK_HOME/compilers/bin:$HPCSDK_HOME/cuda/bin:$HPCSDK_HOME/comm_libs/mpi/bin:${PATH}
+ENV PATH $HPCSDK_HOME/compilers/bin:$HPCSDK_HOME/cuda/bin:${PATH}
 ENV LD_LIBRARY_PATH $HPCSDK_HOME/cuda/lib:$HPCSDK_HOME/cuda/lib64:$HPCSDK_HOME/compilers/lib:$HPCSDK_HOME/math_libs/lib64:$HPCSDK_HOME/comm_libs/mpi/lib:$HPCSDK_CUPTI/lib64:bitcomp_DIR:${LD_LIBRARY_PATH}
 
 ## INSTALL CLANG 13
-RUN git clone https://github.com/llvm/llvm-project.git
-WORKDIR /llvm-project
-RUN git checkout fee90542326bc1d81ba684bfc0a2cd21cb04e650
+RUN wget -q https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-13.0.0.tar.gz
+RUN tar -xf llvmorg-13.0.0.tar.gz
+WORKDIR /llvm-project-llvmorg-13.0.0
+# RUN git checkout fee90542326bc1d81ba684bfc0a2cd21cb04e650
 RUN mkdir build
-WORKDIR /llvm-project/build
+WORKDIR /llvm-project-llvmorg-13.0.0/build
 RUN ls
-RUN cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;openmp;compiler-rt" -DCMAKE_INSTALL_PREFIX=/llvm13 -DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=86 -DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_86  -DOPENMP_ENABLE_LIBOMPTARGET=ON
-RUN make -j 4
-RUN make install
+RUN cmake ../llvm/ -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" -DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi;openmp;compiler-rt" -DCMAKE_INSTALL_PREFIX=/llvm13 -DLIBOMPTARGET_NVPTX_COMPUTE_CAPABILITIES=86 -DCLANG_OPENMP_NVPTX_DEFAULT_ARCH=sm_86 -DOPENMP_ENABLE_LIBOMPTARGET=ON
+RUN make -j 8
+RUN make -j 8 install
 
 WORKDIR /
 RUN rm -rf llvmorg-13.0.0.tar.gz llvm-project-llvmorg-13.0.0
@@ -109,7 +98,7 @@ RUN python3 -m venv /venv && \
     /venv/bin/pip install --no-cache-dir wheel && \
     /venv/bin/pip install --no-cache-dir -r /app/requirements.txt && \
     /venv/bin/pip install --no-cache-dir -r /app/requirements-optional.txt && \
-    /venv/bin/pip install --no-cache-dir -r /app/requirements-nvidia.txt && \
+    # /venv/bin/pip install --no-cache-dir -r /app/requirements-nvidia.txt && \
     rm -rf ~/.cache/pip
 
 ENV CFLAGS=
@@ -127,22 +116,17 @@ ADD docker/run-print-defaults.sh /print-defaults
 ADD docker/entrypoint.sh /docker-entrypoint.sh
 ADD docker/nvdashboard.json /app/nvdashboard.json
 
-RUN chmod +x /print-defaults /jupyter /tests /docker-entrypoint.sh && \
-    /venv/bin/jupyter serverextension enable dask_labextension 
-#    /venv/bin/jupyter lab workspaces import /app/nvdashboard.json
+RUN chmod +x /print-defaults /jupyter /tests /docker-entrypoint.sh
+    # /venv/bin/jupyter serverextension enable dask_labextension 
+    # /venv/bin/jupyter lab workspaces import /app/nvdashboard.json
 
-## Environment Variables for OpenACC Builds
-# Reference: https://github.com/devitocodes/devito/wiki/FAQ#can-i-manually-modify-the-c-code-generated-by-devito-and-test-these-modifications
-# Set arch to PGI (pgcc)
+## Environment Variables for Clang/LLVM OpenMP Offloading Builds
 ENV DEVITO_ARCH="clang" 
 ENV DEVITO_LANGUAGE="openmp"
 ENV DEVITO_PLATFORM=nvidiaX
-# Options: [unset, 1] For PGI openacc; Should only be set after a first execution of the benchmark
-# ENV DEVITO_JIT_BACKDOOR=1 
 
 # Enable logging, Options: [unset, PERF, DEBUG]
-ENV DEVITO_LOGGING=DEBUG 
-#ENV PGI_ACC_TIME=1 
+ENV DEVITO_LOGGING=DEBUG
 
 ## Create App user 
 # Set the home directory to our app user's home.
