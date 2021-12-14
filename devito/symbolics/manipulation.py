@@ -381,10 +381,8 @@ def evalrel(func=min, input=None, assumptions=None):
             # Do not add a pair e.g. (a:b) if symmetric (b:a)
             assert len(a.args) == 2
             a0, a1 = a.args
-            if any(((a1, a0), (a0, a1)) is k for k in mapper.items()):
-                pass
-            elif ((isinstance(a, (Ge, Gt)) and func is max) or
-                  (isinstance(a, (Le, Lt)) and func is min)):
+            if ((isinstance(a, (Ge, Gt)) and func is max) or
+               (isinstance(a, (Le, Lt)) and func is min)):
                 mapper[a1] = a0
             elif ((isinstance(a, (Le, Lt)) and func is max) or
                   (isinstance(a, (Ge, Gt)) and func is min)):
