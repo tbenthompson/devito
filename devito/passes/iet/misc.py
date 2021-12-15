@@ -133,7 +133,9 @@ def relax_incr_dimensions(iet, **kwargs):
             # root.
             # e.g. for 2-level blocking [x (inner Incr), x0_blk1, x0_blk0, x (outer root)]
             # [x0_blk1 > x0_blk0, x0_blk1_size > x0_blk0_size]
+
             defines = sorted(i.dim._defines, key=lambda x: (not x.is_Incr or -x._depth))
+
             # Collect assumptions
             acs = [j for j in defines if j is not i.dim and j.is_Incr]
             assumptions = []
@@ -148,9 +150,6 @@ def relax_incr_dimensions(iet, **kwargs):
             defmin = [j.symbolic_min for j in defmin]
             defmax = [j.symbolic_max for j in defmax]
 
-            # [x, x0_blk0, x0_blk0, x]
-            # [x0_blk1 + x0_blk1_size - 1, x_M, x_M, x_M]
-
             # Drop duplicates from defmin/defmax and keep them Ordered
             defmin = list(OrderedDict.fromkeys(defmin))
             defmax = list(OrderedDict.fromkeys(defmax))
@@ -161,9 +160,6 @@ def relax_incr_dimensions(iet, **kwargs):
                       k in defmin if k.is_Symbol and not k.is_Scalar)]
             defmax = [j for j in defmax if j not in (k.symbolic_max for
                       k in defmax if k.is_Symbol and not k.is_Scalar)]
-            # [x0_blk1]
-            # [x0_blk1 + x0_blk1_size - 1, x_M, x_M, x_M]
-            # [x0_blk1 + x0_blk1_size - 1, x_M]
 
             # At this point the candidates for the start and end of the `Iteration`
             # comprise of candidates stemming from i.dim and candidates stemming from
