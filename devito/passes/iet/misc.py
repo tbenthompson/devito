@@ -97,7 +97,7 @@ def relax_incr_dimensions(iet, **kwargs):
         roots_max = {i.dim.root: i.symbolic_max for i in outer}
 
         # Process inner iterations and adjust their bounds
-        for n, i in enumerate(inner):
+        for i in inner:
             # This part of the code aims to collect the data necessary to build the
             # MIN/MAX bounds of an Iteration. The main challenge is to correctly
             # take care of interval offsets (incurred by several Devito optimizations),
